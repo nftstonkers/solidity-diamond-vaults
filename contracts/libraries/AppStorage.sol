@@ -3,8 +3,7 @@ pragma solidity ^0.8.17;
 
 library AppStorage {
     struct Vault {
-        mapping(address => uint256) balance;
-        uint256 totalBalance;
+        mapping(address => mapping(address => uint256)) balances;
     }
 
     function vault() internal pure returns (Vault storage v) {

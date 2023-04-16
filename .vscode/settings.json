@@ -1,6 +1,7 @@
 {
   "solidity.packageDefaultDependenciesContractsDirectory": "contracts",
   "solidity.packageDefaultDependenciesDirectory": "lib",
+  "solidity.compiler": "solc-js",
   "solidity.compileUsingRemoteVersion": "v0.8.17",
   "editor.formatOnSave": true,
   "[solidity]": {
