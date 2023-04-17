@@ -5,33 +5,29 @@ import {AppStorage} from "../storage/AppStorage.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {Modifier} from "../abstract/Modifier.sol";
 
+/**
+ * @dev DiamondVaultFacetVw has all functions allowing withdrawal of any native or ERC20 token.
+ */
 contract DiamondVaultFacetV2 is Modifier {
+    /// @dev This emits whenever there is any withdraw from the Vault
     event VaultWithdraw(address indexed _contract, address indexed _user, uint256 amount);
-
-    error INSUFF_BAL();
-    error TRAN_FAIL();
 
     AppStorage internal data;
 
-    function withdrawNative(uint256 amount) external payable validAmount(amount) {
-        _debit(address(0), msg.sender, amount);
-        if (!payable(msg.sender).send(amount)) {
-            revert TRAN_FAIL();
-        }
-        // payable(msg.sender).transfer(amount);
-        // emit VaultWithdraw(address(0), msg.sender, amount);
-    }
+    /// @notice Withdraw the requested Native or ERC20 token from the Vault
+    /// @dev Token Address for Native token is assumed to be address(0), VaultWithdraw event emitted
+    /// @param _token The contract address of the token
+    /// @param _amount Amount to be withdrawal
+    function withdraw(address _token, uint256 _amount) external validAmount(_amount) {
+        uint256 userBalance = data.balances[_token][msg.sender];
+        require(userBalance >= _amount, "INSUFFICIENT_BAL");
+        data.balances[_token][msg.sender] = userBalance - _amount;
 
-    function withdrawERC20(address _token, uint256 amount) external validAmount(amount) {
-        _debit(_token, msg.sender, amount);
-        IERC20(_token).transfer(msg.sender, amount);
-        emit VaultWithdraw(_token, msg.sender, amount);
-    }
-
-    function _debit(address _token, address _user, uint256 amount) internal {
-        if (data.balances[_token][_user] < amount) {
-            revert INSUFF_BAL();
+        if (_token == address(0)) {
+            payable(msg.sender).transfer(_amount);
+        } else {
+            IERC20(_token).transfer(msg.sender, _amount);
         }
-        data.balances[_token][_user] -= amount;
+        emit VaultWithdraw(_token, msg.sender, _amount);
     }
 }

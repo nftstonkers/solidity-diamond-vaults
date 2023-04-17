@@ -3,11 +3,10 @@ import { ethers } from 'ethers';
 import * as dotenv from 'dotenv';
 import * as Diamond from '../out/Diamond.sol/Diamond.json'
 import * as DiamondCutFacet from '../out/DiamondCutFacet.sol/DiamondCutFacet.json';
-import * as DiamondLoupeFacet from '../out/DiamondLoupeFacet.sol/DiamondLoupeFacet.json';
-import * as OwnershipFacet from '../out/OwnershipFacet.sol/OwnershipFacet.json';
-import * as DiamondVaultFacetV1 from '../out/DiamondVaultFacetV1.sol/DiamondVaultFacetV1.json'
+import * as DiamondVaultFacetV2 from '../out/DiamondVaultFacetV2.sol/DiamondVaultFacetV2.json'
 
 dotenv.config();
+
 
 // Helper function to send a raw transaction
 async function sendRawTransaction(wallet: ethers.Wallet, to: string, data: string) {
@@ -51,8 +50,6 @@ const deploy = async (factory: ethers.ContractFactory, deployer: ethers.Wallet, 
         nonce: nonce,
     });
 
-
-
     // Send the signed transaction
     const txResponse = await deployer.provider.sendTransaction(signedTx);
     console.log("Transaction Hash:", txResponse.hash);
@@ -90,7 +87,7 @@ const addDiamondCuts = async (diamondAddress: string, diamondCut: [string, strin
     console.log('Diamond cuts added successfully');
 };
 
-const deployDiamond = async () => {
+const upgradeDiamond = async () => {
     const provider = new ethers.providers.JsonRpcProvider(process.env.RPC_ENDPOINT, {
         name: 'Vault Diamond',
         chainId: parseInt(process.env.CHAIN_ID ?? '1'),
@@ -99,46 +96,24 @@ const deployDiamond = async () => {
     const deployer = ethers.Wallet.fromMnemonic(process.env.SECRET_NEUMONIC ?? "", walletPath).connect(provider);
     //const deployer = new ethers.Wallet(process.env.DEPLOYER_PRIVATE_KEY ?? '', provider);
 
-    console.log('Deploying Diamond using account:', deployer.address);
+    console.log('Upgrading Diamond using account:', deployer.address);
 
-    // Deploy DiamondCutFacet
-    const diamondCutFacetFactory = new ethers.ContractFactory(DiamondCutFacet.abi, DiamondCutFacet.bytecode, deployer);
-    const diamondCutFacet = await deploy(diamondCutFacetFactory, deployer);
-    console.log('DiamondCutFacet deployed at:', diamondCutFacet.address);
 
-    // Deploy DiamondLoupeFacet
-    const diamondLoupeFacetFactory = new ethers.ContractFactory(DiamondLoupeFacet.abi, DiamondLoupeFacet.bytecode, deployer);
-    const diamondLoupeFacet = await deploy(diamondLoupeFacetFactory, deployer);
-    console.log('DiamondLoupeFacet deployed at:', diamondLoupeFacet.address);
-
-    // Deploy OwnershipFacet
-    const ownershipFacetFactory = new ethers.ContractFactory(OwnershipFacet.abi, OwnershipFacet.bytecode, deployer);
-    const ownershipFacet = await deploy(ownershipFacetFactory, deployer);
-    console.log('OwnershipFacet deployed at:', ownershipFacet.address);
-
-    // Deploy DiamondVaultFacetV1
-    const diamondVaultFacetV1Factory = new ethers.ContractFactory(DiamondVaultFacetV1.abi, DiamondVaultFacetV1.bytecode, deployer);
-    const diamondVaultFacetV1 = await deploy(diamondVaultFacetV1Factory, deployer);
-    console.log('DiamondVaultFacetV1 deployed at:', diamondVaultFacetV1.address);
+    // Deploy DiamondVaultFacetV2
+    const diamondVaultFacetV2Factory = new ethers.ContractFactory(DiamondVaultFacetV2.abi, DiamondVaultFacetV2.bytecode, deployer);
+    const diamondVaultFacetV2 = await deploy(diamondVaultFacetV2Factory, deployer);
+    console.log('DiamondVaultFacetV2 deployed at:', diamondVaultFacetV2.address);
 
 
     const diamondCut: [string, string[]][] = [
-        // [diamondCutFacet.address, ethers.utils.id('diamondCut((address,uint256[],bytes)[])')],
-        [diamondLoupeFacet.address, [ethers.utils.id('facetAddress(bytes4)'), ethers.utils.id('facets()'), ethers.utils.id('facetFunctionSelectors(address)'), ethers.utils.id('facetAddresses()')]],
-        [ownershipFacet.address, [ethers.utils.id('owner()'), ethers.utils.id('transferOwnership(address)')]],
-        [diamondVaultFacetV1.address, [ethers.utils.id('depositNative()'), ethers.utils.id('depositERC20(address,uint256)'), ethers.utils.id('balances(address,address)')]],
+        [diamondVaultFacetV2.address, [ethers.utils.id('withdraw(address,uint256)')]],
     ];
 
-    // Deploy Diamond
-    const diamondFactory = new ethers.ContractFactory(Diamond.abi, Diamond.bytecode, deployer);
-    const diamond = await deploy(diamondFactory, deployer, [deployer.address, diamondCutFacet.address]);
-    console.log('Diamond deployed at:', diamond.address);
-
-    await addDiamondCuts(diamond.address, diamondCut, deployer);
+    await addDiamondCuts(process.env.DIAMOND_ADDRESS ?? '', diamondCut, deployer);
 
 };
 
-deployDiamond()
+upgradeDiamond()
     .then(() => process.exit(0))
     .catch((error) => {
         console.error(error);
